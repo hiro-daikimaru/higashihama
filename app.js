@@ -9,6 +9,9 @@ updateHeader();
 window.addEventListener("scroll", updateHeader, { passive: true });
 
 const heroVideos = [...document.querySelectorAll("[data-hero-video]")];
+const START_TIME = 53;
+const END_TIME = 63;
+const RESTART_THRESHOLD = START_TIME - 0.5;
 
 if (heroVideos.length) {
   const tag = document.createElement("script");
@@ -18,29 +21,35 @@ if (heroVideos.length) {
 
 window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
   heroVideos.forEach((iframe) => {
-    const start = Number(iframe.dataset.videoStart || 53);
-    const end = Number(iframe.dataset.videoEnd || 63);
+    let isReady = false;
+
+    function restartVideo(player) {
+      player.seekTo(START_TIME, true);
+      player.playVideo();
+    }
 
     const player = new YT.Player(iframe, {
       events: {
         onReady(event) {
+          isReady = true;
           event.target.mute();
-          event.target.seekTo(start, true);
-          event.target.playVideo();
+          restartVideo(event.target);
         },
         onStateChange(event) {
           if (event.data === YT.PlayerState.ENDED) {
-            event.target.seekTo(start, true);
-            event.target.playVideo();
+            restartVideo(event.target);
           }
         },
       },
     });
 
     window.setInterval(() => {
-      if (player && player.getCurrentTime && player.getCurrentTime() >= end) {
-        player.seekTo(start, true);
-        player.playVideo();
+      if (!isReady || !player.getCurrentTime) return;
+
+      const currentTime = player.getCurrentTime();
+
+      if (currentTime >= END_TIME || currentTime < RESTART_THRESHOLD) {
+        restartVideo(player);
       }
     }, 500);
   });
